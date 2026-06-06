@@ -1,7 +1,10 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+#include <string>
 
 #include "StudentPerceptor.h"
+#include "AIController.h"
+#include "BehaviorTree/BlackboardComponent.h"
 
 
 UStudentPerceptor::UStudentPerceptor()
@@ -16,6 +19,15 @@ void UStudentPerceptor::BeginPlay()
 	if (auto PerceptionComp = GetOwner()->GetComponentByClass<UAIPerceptionComponent>())
 	{
 		PerceptionComp->OnTargetPerceptionUpdated.AddDynamic(this, &UStudentPerceptor::OnPerceptionUpdated);
+	}
+	
+	// Cache blackboard
+	if (APawn* Pawn = Cast<APawn>(GetOwner()))
+	{
+		if (AAIController* AI = Cast<AAIController>(Pawn->GetController()))
+		{
+			BB = AI->GetBlackboardComponent();
+		}
 	}
 }
 
@@ -43,6 +55,8 @@ void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 		zombie != nullptr && !SeenZombies.Contains(zombie))
 	{
 		SeenZombies.Add(zombie);
+		
+		UpdateBlackboardZombieFlag();
 		
 		GEngine->AddOnScreenDebugMessage(5, 1.f, FColor::Red, 
 	FString::Printf(TEXT("Saw zombie!")));
@@ -81,4 +95,15 @@ int32 UStudentPerceptor::GetExplorationDensity(const FVector& WorldPos, float Ra
 	}
  
 	return Count;
+}
+
+void UStudentPerceptor::UpdateBlackboardZombieFlag()
+{
+	const bool SeesZombies { SeenZombies.Num() > 0 };
+	
+	GEngine->AddOnScreenDebugMessage(5, 1.f, FColor::Red, 
+		FString::Printf(TEXT("bSeesZombies set to: %s"),
+		SeesZombies ? TEXT("true") : TEXT("false")));
+	
+	BB->SetValueAsBool(TEXT("bSeesZombies"), SeenZombies.Num() > 0);
 }

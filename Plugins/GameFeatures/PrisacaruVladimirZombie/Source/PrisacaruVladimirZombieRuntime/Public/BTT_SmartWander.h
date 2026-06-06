@@ -19,19 +19,19 @@ class PRISACARUVLADIMIRZOMBIERUNTIME_API UBTT_SmartWander : public UBTTaskNode
 	
 	// Destination picking
 
-	/* How often a new unexplored destination is picked (seconds). */
+	/* How often a new unexplored destination is picked (seconds) */
 	UPROPERTY(EditAnywhere, Category="SmartWander", meta=(ClampMin="0.1"))
 	float DestinationInterval = 1.5f;
 
-	/* Radius within which destination candidates are sampled. */
+	/* Radius within which destination candidates are sampled */
 	UPROPERTY(EditAnywhere, Category="SmartWander", meta=(ClampMin="100.0"))
 	float WanderRadius = 800.f;
 
-	/* Number of candidates scored when picking a destination. */
+	/* Number of candidates scored when picking a destination */
 	UPROPERTY(EditAnywhere, Category="SmartWander", meta=(ClampMin="1", ClampMax="32"))
 	int32 NumCandidates = 8;
 
-	/* Radius used when querying exploration density around a candidate. */
+	/* Radius used when querying exploration density around a candidate */
 	UPROPERTY(EditAnywhere, Category="SmartWander", meta=(ClampMin="50.0"))
 	float DensityQueryRadius = 300.f;
 	
@@ -57,12 +57,12 @@ class PRISACARUVLADIMIRZOMBIERUNTIME_API UBTT_SmartWander : public UBTTaskNode
 
 	/*
 	* How strongly the wander angle is pulled toward the destination bearing
-	* each steering update (radians). 0 = pure random, large = nearly straight.
+	* each steering update (radians). 0 = pure random, large = nearly straight
 	*/
 	UPROPERTY(EditAnywhere, Category="SmartWander", meta=(ClampMin="0.0"))
 	float DestinationBias = 0.3f;
 
-	/* Acceptance radius passed to MoveTo. */
+	/* Acceptance radius passed to MoveTo */
 	UPROPERTY(EditAnywhere, Category="SmartWander", meta=(ClampMin="10.0"))
 	float MoveAcceptanceRadius = 50.f;
 

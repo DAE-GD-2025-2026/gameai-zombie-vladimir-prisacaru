@@ -65,7 +65,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Cache")
 	TArray<ABaseZombie*>& GetSeenZombies() { return SeenZombies; };
 	
+	/* Writes the bSeesZombies boolean key to the owner's blackboard */
+	void UpdateBlackboardZombieFlag();
+	
 	private:
+	
+	// Blackboard of the behavior tree
+	UBlackboardComponent* BB;
 	
 	// All world positions that have been "seen" by the survivor
 	UPROPERTY()
