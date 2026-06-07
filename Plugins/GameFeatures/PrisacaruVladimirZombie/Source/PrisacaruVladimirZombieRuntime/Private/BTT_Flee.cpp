@@ -6,6 +6,9 @@
 #include "BehaviorTree/BehaviorTreeComponent.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Navigation/PathFollowingComponent.h"
+#include "Survivor/SurvivorPawn.h"
+
+
 
 UBTT_Flee::UBTT_Flee()
 {
@@ -13,21 +16,21 @@ UBTT_Flee::UBTT_Flee()
 	bNotifyTick = true;
 }
 
-
-EBTNodeResult::Type UBTT_Flee::ExecuteTask(UBehaviorTreeComponent& OwnerComp,
-                                           uint8* NodeMemory)
+EBTNodeResult::Type UBTT_Flee::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
-	FFleeMemory* Mem = reinterpret_cast<FFleeMemory*>(NodeMemory);
-	
-	// Pre-expire so steering fires immediately on the first tick
-	Mem->TimeSinceSteering = SteeringInterval;
+	// Switch to running speed while fleeing
+	if (AAIController* Controller = OwnerComp.GetAIOwner())
+	{
+		if (ASurvivorPawn* Survivor = Cast<ASurvivorPawn>(Controller->GetPawn()))
+			Survivor->StartRunning();
+	}
 
+	FFleeMemory* Mem = reinterpret_cast<FFleeMemory*>(NodeMemory);
+	Mem->TimeSinceSteering = SteeringInterval; // fire immediately on first tick
 	return EBTNodeResult::InProgress;
 }
 
-void UBTT_Flee::TickTask(UBehaviorTreeComponent& OwnerComp,
-                         uint8* NodeMemory,
-                         float DeltaSeconds)
+void UBTT_Flee::TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
 {
 	Super::TickTask(OwnerComp, NodeMemory, DeltaSeconds);
 
@@ -40,47 +43,59 @@ void UBTT_Flee::TickTask(UBehaviorTreeComponent& OwnerComp,
 	UStudentPerceptor* Perceptor = Pawn->GetComponentByClass<UStudentPerceptor>();
 	if (!Perceptor) { FinishLatentTask(OwnerComp, EBTNodeResult::Failed); return; }
 
+	UBlackboardComponent* BB = Perceptor->GetBlackboard();
+	if (!BB) { FinishLatentTask(OwnerComp, EBTNodeResult::Failed); return; }
+
 	const FVector PawnPos = Pawn->GetActorLocation();
 
-	// Cull zombies that are now beyond SafeDistance
+	// Cull zombies that moved out of range
 	TArray<ABaseZombie*>& Zombies = Perceptor->GetSeenZombies();
 	Zombies.RemoveAll([&](const ABaseZombie* Z)
 	{
 		return !IsValid(Z) ||
-		       FVector::Dist(PawnPos, Z->GetActorLocation()) > SafeDistance;
+			FVector::Dist(PawnPos, Z->GetActorLocation()) > ZombieSafeDistance;
 	});
-
-	// Update the blackboard key now that the list may have changed
 	Perceptor->UpdateBlackboardZombieFlag();
 
-	// ---- If no threats remain, we are safe — succeed so BT resumes wander ----
-	if (Zombies.IsEmpty())
+	// Cull purge zones that are now out of range
+	TArray<APurgeZone*>& Purges = Perceptor->GetSeenPurgeZones();
+	Purges.RemoveAll([&](const APurgeZone* P)
 	{
+		return !IsValid(P) ||
+			FVector::Dist(PawnPos, P->GetActorLocation()) > PurgeSafeDistance;
+	});
+	Perceptor->UpdateBlackboardPurgeFlag();
+
+	// If no threats remain, we are safe
+	const bool bZombies = BB->GetValueAsBool(BBKeys::SeesZombies);
+	const bool bPurge = BB->GetValueAsBool(BBKeys::SeesPurgeZone);
+	
+	if (!bZombies && !bPurge)
+	{
+		if (ASurvivorPawn* Survivor = Cast<ASurvivorPawn>(Pawn))
+			Survivor->StopRunning();
+		
 		Controller->StopMovement();
+		
 		FinishLatentTask(OwnerComp, EBTNodeResult::Succeeded);
+		
 		return;
 	}
 
-	// ---- Steering interval: recalculate flee direction and issue MoveTo ----
+	// Steering
 	FFleeMemory* Mem = reinterpret_cast<FFleeMemory*>(NodeMemory);
 	Mem->TimeSinceSteering += DeltaSeconds;
-
+	
 	if (Mem->TimeSinceSteering >= SteeringInterval)
 	{
 		Mem->TimeSinceSteering = 0.f;
 
-		// Average direction AWAY from all remaining zombies
-		FVector FleeDir = FVector::ZeroVector;
-		for (const ABaseZombie* Z : Zombies)
-		{
-			FleeDir += (PawnPos - Z->GetActorLocation());
-		}
+		const FVector FleeFrom = BB->GetValueAsVector(BBKeys::FleeFromLocation);
+		FVector FleeDir = (PawnPos - FleeFrom);
 
-		// If somehow zero (perfectly centred), fall back to pawn forward
 		if (FleeDir.IsNearlyZero())
-		{
 			FleeDir = Pawn->GetActorForwardVector();
-		}
+		
 		FleeDir = FleeDir.GetSafeNormal();
 
 		const FVector FleeTarget = PawnPos + FleeDir * FleeDistance;
@@ -92,20 +107,17 @@ void UBTT_Flee::TickTask(UBehaviorTreeComponent& OwnerComp,
 	}
 }
 
-// ---------------------------------------------------------------------------
-
-EBTNodeResult::Type UBTT_Flee::AbortTask(UBehaviorTreeComponent& OwnerComp,
-                                         uint8* NodeMemory)
+EBTNodeResult::Type UBTT_Flee::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
 	if (AAIController* Controller = OwnerComp.GetAIOwner())
+	{
+		if (ASurvivorPawn* Survivor = Cast<ASurvivorPawn>(Controller->GetPawn()))
+			Survivor->StopRunning();
+		
 		Controller->StopMovement();
-
+	}
+	
 	return Super::AbortTask(OwnerComp, NodeMemory);
 }
 
-// ---------------------------------------------------------------------------
-
-uint16 UBTT_Flee::GetInstanceMemorySize() const
-{
-	return sizeof(FFleeMemory);
-}
+uint16 UBTT_Flee::GetInstanceMemorySize() const { return sizeof(FFleeMemory); }

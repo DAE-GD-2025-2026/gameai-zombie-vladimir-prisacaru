@@ -11,84 +11,90 @@
 #include "Items/BaseItem.h"
 #include "Village/House/House.h"
 #include "Zombies/BaseZombie.h"
+#include "PurgeZones/PurgeZone.h"
+#include "BehaviorTree/BlackboardComponent.h"
 #include "StudentPerceptor.generated.h"
+
+// ---- Blackboard key names ----
+namespace BBKeys
+{
+	static const FName SeesZombies { TEXT("bSeesZombies")   };
+	static const FName SeesPurgeZone { TEXT("bSeesPurgeZone") };
+	static const FName FleeFromLocation { TEXT("FleeFromLocation") };
+	static const FName ShouldSpin { TEXT("bShouldSpin")    };
+	static const FName TargetHouse { TEXT("TargetHouse")    };
+}
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class PRISACARUVLADIMIRZOMBIERUNTIME_API UStudentPerceptor : public UActorComponent
 {
 	GENERATED_BODY()
 
-public:
-	// Sets default values for this component's properties
-	UStudentPerceptor();
+	public:
 	
+	UStudentPerceptor();
+
 	virtual void BeginPlay() override;
+	
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
+		FActorComponentTickFunction* ThisTickFunction) override;
 
 	UFUNCTION()
 	virtual void OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
-	
-	// -------------------------------------------------------
-	// Exploration data – used by BTT_SmartWander
-	// -------------------------------------------------------
- 
-	/**
-	 * Returns all world-space positions where the survivor has already
-	 * observed something via AIPerception.  These represent "explored" spots.
-	 */
+
+	// --- Exploration ---
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Exploration")
 	const TArray<FVector>& GetExploredPositions() const { return ExploredPositions; }
- 
-	/**
-	 * Registers the owner's current location as explored.
-	 * Called by BTT_SmartWander periodically while the survivor is moving
-	 * and on arrival at each waypoint, building a trail of visited positions.
-	 */
+	
 	UFUNCTION(BlueprintCallable, Category="Exploration")
 	void MarkCurrentPositionExplored();
- 
-	/**
-	 * Returns how many times the region around WorldPos (within Radius) has
-	 * been marked explored.  Higher = better known area.
-	 */
+	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Exploration")
 	int32 GetExplorationDensity(const FVector& WorldPos, float Radius) const;
-	
-	/* Returns an array of all items seen by the Agent */
-	UFUNCTION(BlueprintCallable, Category="Cache")
-	TArray<ABaseItem*>& GetSeenItems() { return SeenItems; };
-	
-	/* Returns an array of all houses seen by the Agent */
-	UFUNCTION(BlueprintCallable, Category="Cache")
-	TArray<AHouse*>& GetSeenHouses() { return SeenHouses; };
-	
-	/* Returns an array of all zombies seen by the Agent */
-	UFUNCTION(BlueprintCallable, Category="Cache")
-	TArray<ABaseZombie*>& GetSeenZombies() { return SeenZombies; };
-	
-	/* Writes the bSeesZombies boolean key to the owner's blackboard */
+
+	// Perception caches (tasks read these directly)
+	TArray<ABaseItem*>& GetSeenItems() { return SeenItems; }
+	TArray<AHouse*>& GetSeenHouses() { return SeenHouses; }
+	TArray<ABaseZombie*>& GetSeenZombies() { return SeenZombies; }
+	TArray<APurgeZone*>& GetSeenPurgeZones() { return SeenPurgeZones; }
+
+	// BB update helpers (called by tasks and internally)
 	void UpdateBlackboardZombieFlag();
+	void UpdateBlackboardPurgeFlag();
+
+	// House search tracking
+	void MarkHouseSearched(AHouse* House);
+	void ResetSearchedHouses();
+	bool HasUnsearchedHouses() const;
+	bool IsHouseSearched(const AHouse* House) const;
+
+	UBlackboardComponent* GetBlackboard() const { return BB; }
+
+	/** How often (seconds) all house search records are cleared. */
+	UPROPERTY(EditAnywhere, Category="Exploration", meta=(ClampMin="5.0"))
+	float HouseResetInterval = 30.f;
+
 	
+
 	private:
 	
-	// Blackboard of the behavior tree
-	UBlackboardComponent* BB;
+	void TryEnsureBlackboard();
 	
-	// All world positions that have been "seen" by the survivor
-	UPROPERTY()
-	TArray<FVector> ExploredPositions;
- 
-	// Minimum distance between stored positions to avoid redundant entries
+	/* Writes FleeFromLocation to the closest threat across both
+	 * SeenZombies and SeenPurgeZones. */
+	void UpdateFleeFromLocation();
+
+	UPROPERTY() UBlackboardComponent* BB { nullptr };
+
+	UPROPERTY() TArray<FVector> ExploredPositions;
 	static constexpr float MinRecordDistance = 150.f;
-	
-	// All items seen by the Agent
-	UPROPERTY()
-	TArray<ABaseItem*> SeenItems;
-	
-	// All houses seen by the Agent
-	UPROPERTY()
-	TArray<AHouse*> SeenHouses;
-	
-	// All zombies seen by the Agent
-	UPROPERTY()
-	TArray<ABaseZombie*> SeenZombies;
+
+	UPROPERTY() TArray<ABaseItem*> SeenItems;
+	UPROPERTY() TArray<AHouse*> SeenHouses;
+	UPROPERTY() TSet<AHouse*> SearchedHouses;
+	UPROPERTY() TArray<ABaseZombie*> SeenZombies;
+	UPROPERTY() TArray<APurgeZone*> SeenPurgeZones;
+
+	float HouseResetAccumulator { 0.f };
+	float LastHealth { 0.0f };
 };
