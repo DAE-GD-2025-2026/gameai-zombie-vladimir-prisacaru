@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-#include "BTT_SafeBehavior.h"
-#include "StudentPerceptor.h"
+#include "BTT_SafeBehavior_PrisacaruVladimir.h"
+#include "StudentPerceptor_PrisacaruVladimir.h"
 #include "AIController.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "BehaviorTree/BehaviorTreeComponent.h"
@@ -14,7 +14,7 @@
 #include "Items/Weapon.h"
 #include "Survivor/SurvivorPawn.h"
 
-UBTT_SafeBehavior::UBTT_SafeBehavior()
+UBTT_SafeBehavior_PrisacaruVladimir::UBTT_SafeBehavior_PrisacaruVladimir()
 {
 	NodeName = TEXT("Safe Behavior");
 	bNotifyTick = true;
@@ -39,7 +39,7 @@ namespace
 		});
 	}
 
-	ABaseItem* FindNearestItem(UStudentPerceptor* P, const FVector& Pos,
+	ABaseItem* FindNearestItem(UStudentPerceptor_PrisacaruVladimir* P, const FVector& Pos,
 	                           std::initializer_list<EItemType> Types)
 	{
 		ABaseItem* Best = nullptr; float BestD = MAX_FLT;
@@ -63,7 +63,7 @@ namespace
 		return INDEX_NONE;
 	}
 
-	FVector PickWanderDestination(APawn* Pawn, UStudentPerceptor* P,
+	FVector PickWanderDestination(APawn* Pawn, UStudentPerceptor_PrisacaruVladimir* P,
 	                               float Radius, int32 Candidates, float DensityRadius)
 	{
 		const FVector Origin = Pawn->GetActorLocation();
@@ -73,6 +73,7 @@ namespace
 		{
 			const FVector2D Off = FMath::RandPointInCircle(Radius);
 			const FVector Cand(Origin.X + Off.X, Origin.Y + Off.Y, Origin.Z);
+			if (P && P->IsTooCloseToPurgeZone(Cand)) continue;
 			const int32 D = P ? P->GetExplorationDensity(Cand, DensityRadius) : 0;
 			if (D < LowestDensity) { LowestDensity = D; Best = Cand; if (D == 0) break; }
 		}
@@ -82,7 +83,7 @@ namespace
 
 
 
-EBTNodeResult::Type UBTT_SafeBehavior::ExecuteTask(UBehaviorTreeComponent& OwnerComp,
+EBTNodeResult::Type UBTT_SafeBehavior_PrisacaruVladimir::ExecuteTask(UBehaviorTreeComponent& OwnerComp,
                                                     uint8* NodeMemory)
 {
 	FSafeBehaviorMemory* Mem = reinterpret_cast<FSafeBehaviorMemory*>(NodeMemory);
@@ -98,7 +99,7 @@ EBTNodeResult::Type UBTT_SafeBehavior::ExecuteTask(UBehaviorTreeComponent& Owner
 
 
 
-void UBTT_SafeBehavior::TickTask(UBehaviorTreeComponent& OwnerComp,
+void UBTT_SafeBehavior_PrisacaruVladimir::TickTask(UBehaviorTreeComponent& OwnerComp,
                                   uint8* NodeMemory, float DeltaSeconds)
 {
 	Super::TickTask(OwnerComp, NodeMemory, DeltaSeconds);
@@ -113,7 +114,7 @@ void UBTT_SafeBehavior::TickTask(UBehaviorTreeComponent& OwnerComp,
 	UInventoryComponent* Inv = Survivor ? Survivor->GetComponentByClass<UInventoryComponent>() : nullptr;
 	UHealthComponent* HP = Survivor ? Survivor->GetComponentByClass<UHealthComponent>() : nullptr;
 	UStaminaComponent* Stam = Survivor ? Survivor->GetComponentByClass<UStaminaComponent>() : nullptr;
-	UStudentPerceptor* Perc = Survivor ? Survivor->GetComponentByClass<UStudentPerceptor>() : nullptr;
+	UStudentPerceptor_PrisacaruVladimir* Perc = Survivor ? Survivor->GetComponentByClass<UStudentPerceptor_PrisacaruVladimir>() : nullptr;
 
 	if (!Inv || !Perc) return;
 
@@ -264,10 +265,14 @@ void UBTT_SafeBehavior::TickTask(UBehaviorTreeComponent& OwnerComp,
 			const FVector2D Target2D = CircleCenter +
 				FVector2D(FMath::Cos(Mem->WanderAngle), FMath::Sin(Mem->WanderAngle)) * WanderCircleRadius;
 
-			FAIMoveRequest MR(FVector(Target2D.X, Target2D.Y, PawnPos.Z));
-			MR.SetAcceptanceRadius(WanderAcceptanceRadius);
-			MR.SetUsePathfinding(true);
-			Controller->MoveTo(MR);
+			const FVector MoveTarget(Target2D.X, Target2D.Y, PawnPos.Z);
+			if (!Perc->IsTooCloseToPurgeZone(MoveTarget))
+			{
+				FAIMoveRequest MR(MoveTarget);
+				MR.SetAcceptanceRadius(WanderAcceptanceRadius);
+				MR.SetUsePathfinding(true);
+				Controller->MoveTo(MR);
+			}
 		}
 		return;
 	}
@@ -381,7 +386,7 @@ void UBTT_SafeBehavior::TickTask(UBehaviorTreeComponent& OwnerComp,
 
 
 
-EBTNodeResult::Type UBTT_SafeBehavior::AbortTask(UBehaviorTreeComponent& OwnerComp,
+EBTNodeResult::Type UBTT_SafeBehavior_PrisacaruVladimir::AbortTask(UBehaviorTreeComponent& OwnerComp,
                                                   uint8* NodeMemory)
 {
 	if (AAIController* Controller = OwnerComp.GetAIOwner())
@@ -390,4 +395,4 @@ EBTNodeResult::Type UBTT_SafeBehavior::AbortTask(UBehaviorTreeComponent& OwnerCo
 	return Super::AbortTask(OwnerComp, NodeMemory);
 }
 
-uint16 UBTT_SafeBehavior::GetInstanceMemorySize() const { return sizeof(FSafeBehaviorMemory); }
+uint16 UBTT_SafeBehavior_PrisacaruVladimir::GetInstanceMemorySize() const { return sizeof(FSafeBehaviorMemory); }

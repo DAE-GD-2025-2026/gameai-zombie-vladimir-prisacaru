@@ -1,28 +1,28 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
-#include "StudentPerceptor.h"
+#include "StudentPerceptor_PrisacaruVladimir.h"
 #include "AIController.h"
 #include "Survivor/SurvivorPawn.h"
 
-UStudentPerceptor::UStudentPerceptor()
+UStudentPerceptor_PrisacaruVladimir::UStudentPerceptor_PrisacaruVladimir()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 }
 
-void UStudentPerceptor::BeginPlay()
+void UStudentPerceptor_PrisacaruVladimir::BeginPlay()
 {
 	Super::BeginPlay();
 	
 	if (auto* Perc = GetOwner()->GetComponentByClass<UAIPerceptionComponent>())
 	{
 		Perc->OnTargetPerceptionUpdated.AddDynamic(this,
-			&UStudentPerceptor::OnPerceptionUpdated);
+			&UStudentPerceptor_PrisacaruVladimir::OnPerceptionUpdated);
 	}
 	
 	TryEnsureBlackboard();
 }
 
-void UStudentPerceptor::TryEnsureBlackboard()
+void UStudentPerceptor_PrisacaruVladimir::TryEnsureBlackboard()
 {
 	if (BB) return;
 	if (APawn* Pawn = Cast<APawn>(GetOwner()))
@@ -30,8 +30,8 @@ void UStudentPerceptor::TryEnsureBlackboard()
 			BB = AI->GetBlackboardComponent();
 }
 
-void UStudentPerceptor::TickComponent(float DeltaTime, ELevelTick TickType,
-                                      FActorComponentTickFunction* ThisTickFunction)
+void UStudentPerceptor_PrisacaruVladimir::TickComponent(float DeltaTime, ELevelTick TickType,
+									  FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	TryEnsureBlackboard();
@@ -43,15 +43,22 @@ void UStudentPerceptor::TickComponent(float DeltaTime, ELevelTick TickType,
 		SearchedHouses.Empty();
 		GEngine->AddOnScreenDebugMessage(8, 2.f, FColor::Cyan, TEXT("Houses reset."));
 	}
+
+	SpinCooldownAccumulator += DeltaTime;
+
+	// Prune purge zones that no longer exist (disappeared), then re-evaluate proximity flag
+	SeenPurgeZones.RemoveAll([](const APurgeZone* P){ return !IsValid(P); });
+	UpdateBlackboardPurgeFlag();
 	
 	if (ASurvivorPawn* Pawn = Cast<ASurvivorPawn>(GetOwner()))
 	{
 		if (UHealthComponent* health = Pawn->GetComponentByClass<UHealthComponent>())
 		{
-			if (LastHealth > health->GetHealth())
+			if (LastHealth > health->GetHealth() && SpinCooldownAccumulator >= DamageSpinCooldown)
 			{
-				// was damaged
+				// was damaged and cooldown has elapsed
 				if (BB) BB->SetValueAsBool(BBKeys::ShouldSpin, true);
+				SpinCooldownAccumulator = 0.f;
 				
 				GEngine->AddOnScreenDebugMessage(9, 2.f, FColor::Yellow,
 					TEXT("Damage: spinning!"));
@@ -62,7 +69,8 @@ void UStudentPerceptor::TickComponent(float DeltaTime, ELevelTick TickType,
 	}
 }
 
-void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
+
+void UStudentPerceptor_PrisacaruVladimir::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 {
 	TryEnsureBlackboard();
 
@@ -88,14 +96,14 @@ void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 	if (APurgeZone* Purge = Cast<APurgeZone>(Actor); Purge && !SeenPurgeZones.Contains(Purge))
 	{
 		SeenPurgeZones.Add(Purge);
-		UpdateBlackboardPurgeFlag();
+		// No immediate flag update here — proximity is evaluated each tick
 		GEngine->AddOnScreenDebugMessage(5, 1.f, FColor::Orange, TEXT("Saw purge zone!"));
 	}
 }
 
 // ---------------------------------------------------------------------------
 
-void UStudentPerceptor::MarkCurrentPositionExplored()
+void UStudentPerceptor_PrisacaruVladimir::MarkCurrentPositionExplored()
 {
 	if (!GetOwner()) return;
 	const FVector Pos = GetOwner()->GetActorLocation();
@@ -104,7 +112,7 @@ void UStudentPerceptor::MarkCurrentPositionExplored()
 	ExploredPositions.Add(Pos);
 }
 
-int32 UStudentPerceptor::GetExplorationDensity(const FVector& WorldPos, float Radius) const
+int32 UStudentPerceptor_PrisacaruVladimir::GetExplorationDensity(const FVector& WorldPos, float Radius) const
 {
 	const float R2 = Radius * Radius;
 	int32 Count = 0;
@@ -113,9 +121,18 @@ int32 UStudentPerceptor::GetExplorationDensity(const FVector& WorldPos, float Ra
 	return Count;
 }
 
-// ---------------------------------------------------------------------------
+bool UStudentPerceptor_PrisacaruVladimir::IsTooCloseToPurgeZone(const FVector& WorldPos) const
+{
+	const float R2 = PurgeDangerRadius * PurgeDangerRadius;
+	for (const APurgeZone* P : SeenPurgeZones)
+	{
+		if (!IsValid(P)) continue;
+		if (FVector::DistSquared(WorldPos, P->GetActorLocation()) <= R2) return true;
+	}
+	return false;
+}
 
-void UStudentPerceptor::UpdateFleeFromLocation()
+void UStudentPerceptor_PrisacaruVladimir::UpdateFleeFromLocation()
 {
 	if (!BB) return;
 
@@ -141,7 +158,7 @@ void UStudentPerceptor::UpdateFleeFromLocation()
 		BB->SetValueAsVector(BBKeys::FleeFromLocation, BestPos);
 }
 
-void UStudentPerceptor::UpdateBlackboardZombieFlag()
+void UStudentPerceptor_PrisacaruVladimir::UpdateBlackboardZombieFlag()
 {
 	if (!BB) return;
 
@@ -156,40 +173,41 @@ void UStudentPerceptor::UpdateBlackboardZombieFlag()
 	UpdateFleeFromLocation();
 }
 
-void UStudentPerceptor::UpdateBlackboardPurgeFlag()
+void UStudentPerceptor_PrisacaruVladimir::UpdateBlackboardPurgeFlag()
 {
 	if (!BB) return;
 
-	SeenPurgeZones.RemoveAll([](const APurgeZone* P){ return !IsValid(P); });
-
-	const bool bSees = SeenPurgeZones.Num() > 0;
-	BB->SetValueAsBool(BBKeys::SeesPurgeZone, bSees);
+	// bSeesPurgeZone is true only while the survivor is dangerously close to a known zone
+	const FVector PawnPos = GetOwner() ? GetOwner()->GetActorLocation() : FVector::ZeroVector;
+	const bool bInDanger = IsTooCloseToPurgeZone(PawnPos);
+	BB->SetValueAsBool(BBKeys::SeesPurgeZone, bInDanger);
 	GEngine->AddOnScreenDebugMessage(7, 1.f, FColor::Orange,
-		FString::Printf(TEXT("bSeesPurgeZone: %s"), bSees ? TEXT("true") : TEXT("false")));
+		FString::Printf(TEXT("bSeesPurgeZone: %s"), bInDanger ? TEXT("true") : TEXT("false")));
 
-	UpdateFleeFromLocation();
+	if (bInDanger)
+		UpdateFleeFromLocation();
 }
 
 // ---------------------------------------------------------------------------
 
-void UStudentPerceptor::MarkHouseSearched(AHouse* House)
+void UStudentPerceptor_PrisacaruVladimir::MarkHouseSearched(AHouse* House)
 {
 	if (IsValid(House)) SearchedHouses.Add(House);
 }
 
-void UStudentPerceptor::ResetSearchedHouses()
+void UStudentPerceptor_PrisacaruVladimir::ResetSearchedHouses()
 {
 	SearchedHouses.Empty();
 }
 
-bool UStudentPerceptor::HasUnsearchedHouses() const
+bool UStudentPerceptor_PrisacaruVladimir::HasUnsearchedHouses() const
 {
 	for (const AHouse* H : SeenHouses)
 		if (IsValid(H) && !SearchedHouses.Contains(H)) return true;
 	return false;
 }
 
-bool UStudentPerceptor::IsHouseSearched(const AHouse* House) const
+bool UStudentPerceptor_PrisacaruVladimir::IsHouseSearched(const AHouse* House) const
 {
 	return !IsValid(House) || SearchedHouses.Contains(House);
 }

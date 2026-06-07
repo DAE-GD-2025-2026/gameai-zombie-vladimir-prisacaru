@@ -4,37 +4,34 @@
 
 #include "CoreMinimal.h"
 #include "BehaviorTree/BTTaskNode.h"
-#include "BTT_Flee.generated.h"
+#include "BTT_Flee_PrisacaruVladimir.generated.h"
 
 /**
  * BTT_Flee
  *
  * Flees away from the world position stored in the BB key "FleeFromLocation".
- * Works for both zombie clusters and purge zones — whatever wrote that key last.
+ * Activated when bSeesPurgeZone is set (survivor is within PurgeDangerRadius of a zone).
+ * Also handles zombie flee when bSeesZombies is set simultaneously.
  *
  * Each tick:
- *  - Culls invalid/distant zombies AND expired purge zones from the perceptor
- *    arrays, then updates both BB flags.
+ *  - Culls invalid/distant zombies from the perceptor array, updates bSeesZombies.
+ *  - bSeesPurgeZone is managed entirely by StudentPerceptor::TickComponent (proximity check).
  *  - If neither flag is set, finishes Succeeded.
  *  - Otherwise projects a flee target FleeDistance away from FleeFromLocation
  *    and issues MoveTo at SteeringInterval.
  */
 UCLASS()
-class PRISACARUVLADIMIRZOMBIERUNTIME_API UBTT_Flee : public UBTTaskNode
+class PRISACARUVLADIMIRZOMBIERUNTIME_API UBTT_Flee_PrisacaruVladimir : public UBTTaskNode
 {
 	GENERATED_BODY()
 
 	public:
 	
-	UBTT_Flee();
+	UBTT_Flee_PrisacaruVladimir();
 
 	/* Distance at which a zombie is no longer considered a threat */
 	UPROPERTY(EditAnywhere, Category="Flee", meta=(ClampMin="50.0"))
 	float ZombieSafeDistance = 600.f;
-
-	/* Distance at which a purge zone is no longer considered a threat */
-	UPROPERTY(EditAnywhere, Category="Flee", meta=(ClampMin="50.0"))
-	float PurgeSafeDistance = 800.f;
 
 	/* How far ahead to project the flee target */
 	UPROPERTY(EditAnywhere, Category="Flee", meta=(ClampMin="50.0"))

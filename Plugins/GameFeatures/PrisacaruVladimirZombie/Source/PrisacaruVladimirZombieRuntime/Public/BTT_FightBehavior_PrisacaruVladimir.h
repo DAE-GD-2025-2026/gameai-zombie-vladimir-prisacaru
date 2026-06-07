@@ -6,7 +6,7 @@
 #include "BehaviorTree/BTTaskNode.h"
 #include "Items/BaseItem.h"
 #include "Village/House/House.h"
-#include "BTT_FightBehavior.generated.h"
+#include "BTT_FightBehavior_PrisacaruVladimir.generated.h"
 
 /**
  * BTT_FightBehavior
@@ -30,12 +30,12 @@
  *   FleeWander -> wander-steered running, angle biased AWAY from nearest zombie each tick
  */
 UCLASS()
-class PRISACARUVLADIMIRZOMBIERUNTIME_API UBTT_FightBehavior : public UBTTaskNode
+class PRISACARUVLADIMIRZOMBIERUNTIME_API UBTT_FightBehavior_PrisacaruVladimir : public UBTTaskNode
 {
 	GENERATED_BODY()
 
 public:
-	UBTT_FightBehavior();
+	UBTT_FightBehavior_PrisacaruVladimir();
 
 	// Combat
 	UPROPERTY(EditAnywhere, Category="Combat", meta=(ClampMin="1"))

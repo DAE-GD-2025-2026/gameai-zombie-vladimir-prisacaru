@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "BehaviorTree/BTTaskNode.h"
-#include "BTT_Spin360.generated.h"
+#include "BTT_Spin360_PrisacaruVladimir.generated.h"
 
 /**
  * BTT_Spin360
@@ -16,13 +16,13 @@
  * On completion, clears the BB key "bShouldSpin"
  */
 UCLASS()
-class PRISACARUVLADIMIRZOMBIERUNTIME_API UBTT_Spin360 : public UBTTaskNode
+class PRISACARUVLADIMIRZOMBIERUNTIME_API UBTT_Spin360_PrisacaruVladimir : public UBTTaskNode
 {
 	GENERATED_BODY()
 
 	public:
 	
-	UBTT_Spin360();
+	UBTT_Spin360_PrisacaruVladimir();
 
 	/* Total time to complete one full rotation. */
 	UPROPERTY(EditAnywhere, Category="Spin360", meta=(ClampMin="0.1"))

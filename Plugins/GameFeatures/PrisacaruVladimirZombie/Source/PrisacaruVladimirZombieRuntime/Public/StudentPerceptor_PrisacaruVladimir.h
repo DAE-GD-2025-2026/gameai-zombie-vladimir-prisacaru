@@ -13,7 +13,7 @@
 #include "Zombies/BaseZombie.h"
 #include "PurgeZones/PurgeZone.h"
 #include "BehaviorTree/BlackboardComponent.h"
-#include "StudentPerceptor.generated.h"
+#include "StudentPerceptor_PrisacaruVladimir.generated.h"
 
 // ---- Blackboard key names ----
 namespace BBKeys
@@ -26,13 +26,13 @@ namespace BBKeys
 }
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class PRISACARUVLADIMIRZOMBIERUNTIME_API UStudentPerceptor : public UActorComponent
+class PRISACARUVLADIMIRZOMBIERUNTIME_API UStudentPerceptor_PrisacaruVladimir : public UActorComponent
 {
 	GENERATED_BODY()
 
 	public:
 	
-	UStudentPerceptor();
+	UStudentPerceptor_PrisacaruVladimir();
 
 	virtual void BeginPlay() override;
 	
@@ -42,7 +42,7 @@ class PRISACARUVLADIMIRZOMBIERUNTIME_API UStudentPerceptor : public UActorCompon
 	UFUNCTION()
 	virtual void OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
 
-	// --- Exploration ---
+	// Exploration
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Exploration")
 	const TArray<FVector>& GetExploredPositions() const { return ExploredPositions; }
 	
@@ -70,18 +70,28 @@ class PRISACARUVLADIMIRZOMBIERUNTIME_API UStudentPerceptor : public UActorCompon
 
 	UBlackboardComponent* GetBlackboard() const { return BB; }
 
-	/** How often (seconds) all house search records are cleared. */
+	/* Returns true if WorldPos is within PurgeDangerRadius of any known purge zone */
+	bool IsTooCloseToPurgeZone(const FVector& WorldPos) const;
+
+	/* How often (seconds) all house search records are cleared */
 	UPROPERTY(EditAnywhere, Category="Exploration", meta=(ClampMin="5.0"))
 	float HouseResetInterval = 30.f;
 
+	/* Distance from a purge zone center that triggers fleeing and is rejected by wander */
+	UPROPERTY(EditAnywhere, Category="PurgeZone", meta=(ClampMin="50.0"))
+	float PurgeDangerRadius = 600.f;
+
+	/* Minimum time (seconds) between damage-triggered spins */
+	UPROPERTY(EditAnywhere, Category="Spin", meta=(ClampMin="0.0"))
+	float DamageSpinCooldown = 1.f;
+	
 	
 
 	private:
 	
 	void TryEnsureBlackboard();
 	
-	/* Writes FleeFromLocation to the closest threat across both
-	 * SeenZombies and SeenPurgeZones. */
+	/* Writes FleeFromLocation to the closest threat across both SeenZombies and SeenPurgeZones. */
 	void UpdateFleeFromLocation();
 
 	UPROPERTY() UBlackboardComponent* BB { nullptr };
@@ -96,5 +106,6 @@ class PRISACARUVLADIMIRZOMBIERUNTIME_API UStudentPerceptor : public UActorCompon
 	UPROPERTY() TArray<APurgeZone*> SeenPurgeZones;
 
 	float HouseResetAccumulator { 0.f };
+	float SpinCooldownAccumulator { 0.f };
 	float LastHealth { 0.0f };
 };

@@ -1,19 +1,19 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-#include "BTT_Spin360.h"
-#include "StudentPerceptor.h"
+#include "BTT_Spin360_PrisacaruVladimir.h"
+#include "StudentPerceptor_PrisacaruVladimir.h"
 #include "AIController.h"
 #include "BehaviorTree/BehaviorTreeComponent.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Village/House/House.h"
 
-UBTT_Spin360::UBTT_Spin360()
+UBTT_Spin360_PrisacaruVladimir::UBTT_Spin360_PrisacaruVladimir()
 {
 	NodeName = TEXT("Spin 360");
 	bNotifyTick = true;
 }
 
-EBTNodeResult::Type UBTT_Spin360::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
+EBTNodeResult::Type UBTT_Spin360_PrisacaruVladimir::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
 	AAIController* Controller = OwnerComp.GetAIOwner();
 	if (!Controller) return EBTNodeResult::Failed;
@@ -31,7 +31,7 @@ EBTNodeResult::Type UBTT_Spin360::ExecuteTask(UBehaviorTreeComponent& OwnerComp,
 	return EBTNodeResult::InProgress;
 }
 
-void UBTT_Spin360::TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
+void UBTT_Spin360_PrisacaruVladimir::TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
 {
 	Super::TickTask(OwnerComp, NodeMemory, DeltaSeconds);
 
@@ -51,7 +51,7 @@ void UBTT_Spin360::TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory
 
 	if (Mem->TimeElapsed >= SpinDuration)
 	{
-		UStudentPerceptor* P = Pawn->GetComponentByClass<UStudentPerceptor>();
+		UStudentPerceptor_PrisacaruVladimir* P = Pawn->GetComponentByClass<UStudentPerceptor_PrisacaruVladimir>();
 		UBlackboardComponent* BB = P ? P->GetBlackboard() : nullptr;
 
 		if (BB)
@@ -73,9 +73,9 @@ void UBTT_Spin360::TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory
 	}
 }
 
-EBTNodeResult::Type UBTT_Spin360::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
+EBTNodeResult::Type UBTT_Spin360_PrisacaruVladimir::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
 	return Super::AbortTask(OwnerComp, NodeMemory);
 }
 
-uint16 UBTT_Spin360::GetInstanceMemorySize() const { return sizeof(FSpin360Memory); }
+uint16 UBTT_Spin360_PrisacaruVladimir::GetInstanceMemorySize() const { return sizeof(FSpin360Memory); }

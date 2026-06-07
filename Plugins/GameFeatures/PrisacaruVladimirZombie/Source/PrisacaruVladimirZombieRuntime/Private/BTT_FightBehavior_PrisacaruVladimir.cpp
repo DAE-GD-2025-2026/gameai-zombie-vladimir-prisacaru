@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-#include "BTT_FightBehavior.h"
-#include "StudentPerceptor.h"
+#include "BTT_FightBehavior_PrisacaruVladimir.h"
+#include "StudentPerceptor_PrisacaruVladimir.h"
 #include "AIController.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "BehaviorTree/BehaviorTreeComponent.h"
@@ -13,7 +13,7 @@
 #include "Zombies/BaseZombie.h"
 #include "Survivor/SurvivorPawn.h"
 
-UBTT_FightBehavior::UBTT_FightBehavior()
+UBTT_FightBehavior_PrisacaruVladimir::UBTT_FightBehavior_PrisacaruVladimir()
 {
 	NodeName = TEXT("Fight Behavior");
 	bNotifyTick = true;
@@ -37,7 +37,7 @@ namespace
 		return INDEX_NONE;
 	}
 
-	ABaseItem* FindNearestWeapon(UStudentPerceptor* P, const FVector& Pos)
+	ABaseItem* FindNearestWeapon(UStudentPerceptor_PrisacaruVladimir* P, const FVector& Pos)
 	{
 		ABaseItem* Best = nullptr; float BestD = MAX_FLT;
 		for (ABaseItem* Item : P->GetSeenItems())
@@ -76,7 +76,7 @@ namespace
 
 
 
-EBTNodeResult::Type UBTT_FightBehavior::ExecuteTask(UBehaviorTreeComponent& OwnerComp,
+EBTNodeResult::Type UBTT_FightBehavior_PrisacaruVladimir::ExecuteTask(UBehaviorTreeComponent& OwnerComp,
                                                      uint8* NodeMemory)
 {
 	FFightBehaviorMemory* Mem = reinterpret_cast<FFightBehaviorMemory*>(NodeMemory);
@@ -93,7 +93,7 @@ EBTNodeResult::Type UBTT_FightBehavior::ExecuteTask(UBehaviorTreeComponent& Owne
 
 
 
-void UBTT_FightBehavior::TickTask(UBehaviorTreeComponent& OwnerComp,
+void UBTT_FightBehavior_PrisacaruVladimir::TickTask(UBehaviorTreeComponent& OwnerComp,
                                    uint8* NodeMemory, float DeltaSeconds)
 {
 	Super::TickTask(OwnerComp, NodeMemory, DeltaSeconds);
@@ -106,7 +106,7 @@ void UBTT_FightBehavior::TickTask(UBehaviorTreeComponent& OwnerComp,
 
 	ASurvivorPawn* Survivor  = Cast<ASurvivorPawn>(Pawn);
 	UInventoryComponent* Inv = Survivor ? Survivor->GetComponentByClass<UInventoryComponent>() : nullptr;
-	UStudentPerceptor*  Perc = Survivor ? Survivor->GetComponentByClass<UStudentPerceptor>()   : nullptr;
+	UStudentPerceptor_PrisacaruVladimir*  Perc = Survivor ? Survivor->GetComponentByClass<UStudentPerceptor_PrisacaruVladimir>()   : nullptr;
 
 	if (!Inv || !Perc) return;
 
@@ -362,10 +362,14 @@ void UBTT_FightBehavior::TickTask(UBehaviorTreeComponent& OwnerComp,
 			const FVector2D Target2D = CircleCenter +
 				FVector2D(FMath::Cos(Mem->WanderAngle), FMath::Sin(Mem->WanderAngle)) * WanderCircleRadius;
 
-			FAIMoveRequest MR(FVector(Target2D.X, Target2D.Y, PawnPos.Z));
-			MR.SetAcceptanceRadius(WanderAcceptanceRadius);
-			MR.SetUsePathfinding(true);
-			Controller->MoveTo(MR);
+			const FVector MoveTarget(Target2D.X, Target2D.Y, PawnPos.Z);
+			if (!Perc->IsTooCloseToPurgeZone(MoveTarget))
+			{
+				FAIMoveRequest MR(MoveTarget);
+				MR.SetAcceptanceRadius(WanderAcceptanceRadius);
+				MR.SetUsePathfinding(true);
+				Controller->MoveTo(MR);
+			}
 		}
 		
 		return;
@@ -440,7 +444,7 @@ void UBTT_FightBehavior::TickTask(UBehaviorTreeComponent& OwnerComp,
 	Mem->WanderAngle = FMath::Atan2(Fwd.Y, Fwd.X);
 }
 
-EBTNodeResult::Type UBTT_FightBehavior::AbortTask(UBehaviorTreeComponent& OwnerComp,
+EBTNodeResult::Type UBTT_FightBehavior_PrisacaruVladimir::AbortTask(UBehaviorTreeComponent& OwnerComp,
                                                    uint8* NodeMemory)
 {
 	if (AAIController* Controller = OwnerComp.GetAIOwner())
@@ -454,4 +458,4 @@ EBTNodeResult::Type UBTT_FightBehavior::AbortTask(UBehaviorTreeComponent& OwnerC
 	return Super::AbortTask(OwnerComp, NodeMemory);
 }
 
-uint16 UBTT_FightBehavior::GetInstanceMemorySize() const { return sizeof(FFightBehaviorMemory); }
+uint16 UBTT_FightBehavior_PrisacaruVladimir::GetInstanceMemorySize() const { return sizeof(FFightBehaviorMemory); }

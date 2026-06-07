@@ -6,7 +6,7 @@
 #include "BehaviorTree/BTTaskNode.h"
 #include "Items/BaseItem.h"
 #include "Village/House/House.h"
-#include "BTT_SafeBehavior.generated.h"
+#include "BTT_SafeBehavior_PrisacaruVladimir.generated.h"
 
 /**
  * BTT_SafeBehavior
@@ -30,13 +30,13 @@
  *   Wandering -> smart wander movement; re-evaluates every WanderInterval
  */
 UCLASS()
-class PRISACARUVLADIMIRZOMBIERUNTIME_API UBTT_SafeBehavior : public UBTTaskNode
+class PRISACARUVLADIMIRZOMBIERUNTIME_API UBTT_SafeBehavior_PrisacaruVladimir : public UBTTaskNode
 {
 	GENERATED_BODY()
 
 	public:
 	
-	UBTT_SafeBehavior();
+	UBTT_SafeBehavior_PrisacaruVladimir();
 
 	// Thresholds
 	UPROPERTY(EditAnywhere, Category="Needs", meta=(ClampMin="0.0", ClampMax="1.0"))
